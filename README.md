@@ -11,4 +11,4 @@
 obj = SnirfClass('probe.snirf');
 PlotProbe2(obj);
 ```
-5. Note that your filename could be different from ```probe.snirf```, so you pass appropriate filename to ```SnirfClass```
+6. Note that your filename could be different from ```probe.snirf```, so pass appropriate filename to ```SnirfClass```
