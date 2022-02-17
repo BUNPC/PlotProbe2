@@ -2,10 +2,11 @@
 
 ### Instructions to run PlotProbe2
 
-1. Go to PlotProbe2 folder
-2. Add plot probe to matlab path ``` addpath(genpath('.')) ```
-3. Go to the folder where snirf file is located or use the probe.snirf present in the PlotProbe2 folder
-4. Run below commands on matlab command window
+1. Open Matlab
+2. Go to PlotProbe2 folder on Matlab
+3. Add plot probe to matlab path by running ``` addpath(genpath('.')) ``` command on matlab command window
+4. Go to the folder where snirf file is located or use probe.snirf file present in the PlotProbe2 folder
+5. Run below commands on matlab command window
 ``` 
 obj = SnirfClass('probe.snirf');
 PlotProbe2(obj);
