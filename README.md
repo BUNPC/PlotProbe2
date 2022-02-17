@@ -4,7 +4,7 @@
 
 1. Open Matlab
 2. Go to PlotProbe2 folder on Matlab
-3. Add plot probe to matlab path by running ``` addpath(genpath('.')) ``` command on matlab command window
+3. Add PlotProbe2 to matlab path by running ``` addpath(genpath('.')) ``` command on matlab command window
 4. Go to the folder where snirf file is located or use probe.snirf file present in the PlotProbe2 folder
 5. Run below commands on matlab command window
 ``` 
