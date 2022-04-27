@@ -22,7 +22,7 @@ function varargout = PlotProbe2(varargin)
 
 % Edit the above text to modify the response to help PlotProbe2
 
-% Last Modified by GUIDE v2.5 25-Jan-2022 11:43:29
+% Last Modified by GUIDE v2.5 22-Mar-2022 16:55:43
 
 % Return if snirf object was not passed
 if isempty(varargin)
@@ -69,45 +69,78 @@ guidata(hObject, handles);
 
 snirfObj = varargin{1};
 dataTypeLabels = {};
+dataTypeOrder = {};
 measList = [];
-for u = 1:length(snirfObj.data.measurementList)
-    dataTypeLabel = GetDataTypeLabel(snirfObj.data.measurementList(u));
-    if ~any(strcmp(dataTypeLabels,dataTypeLabel))
-    	dataTypeLabels{end+1} = dataTypeLabel;
+wavelengths = GetWls(snirfObj.probe);
+HbXList = {'None'};
+dODList = {'None'};
+for v = 1:length(snirfObj.data)
+    for u = 1:length(snirfObj.data(v).measurementList)
+        dataTypeLabel = GetDataTypeLabel(snirfObj.data(v).measurementList(u));
+        
+        % Make sure while saving snirf this is a string not cell array,
+        % althogh its an issue but it should save consistantly but saves string
+        % sometimes and as cell as sometimes
+        if iscell(dataTypeLabel)
+            dataTypeLabel = strcat((char(dataTypeLabel))');
+%             snirfObj.data(v).measurementList(u) = dataTypeLabel;
+        end
+        
+        if strcmp(dataTypeLabel,'dOD')
+            wavelengthIndex = GetWavelengthIndex(snirfObj.data(v).measurementList(u));
+            wavelength = wavelengths(wavelengthIndex);
+            dataTypeLabel = [dataTypeLabel '_' num2str(wavelength)];
+        end
+        
+        if ~any(strcmp(dataTypeLabels,dataTypeLabel))
+            dataTypeLabels{end+1} = dataTypeLabel;
+        end
+        srcIdx = GetSourceIndex(snirfObj.data(v).measurementList(u));
+        detIdx = GetDetectorIndex(snirfObj.data(v).measurementList(u));
+        if isempty(measList)
+            measList  = [srcIdx, detIdx];
+        elseif sum(ismember(measList, [srcIdx, detIdx], 'rows')) == 0
+            measList  = [measList;  [srcIdx, detIdx]];
+        end
+
+        if u == 1
+            minAmp = min(snirfObj.data(v).dataTimeSeries(:,u));
+            maxAmp = max(snirfObj.data(v).dataTimeSeries(:,u));
+            snirfObj.data(v).dataTimeSeries(:,u) = snirfObj.data(v).dataTimeSeries(:,u) -(minAmp+ maxAmp)/2;
+            minAmp = minAmp-(minAmp+ maxAmp)/2;
+            maxAmp = maxAmp-(minAmp+ maxAmp)/2;
+            if strcmp(dataTypeLabel,'HRF HbO') || strcmp(dataTypeLabel,'HRF HbO') || strcmp(dataTypeLabel,'HRF HbO')
+                dataTypeOrder{end+1} = 'HRF HbX';
+            elseif contains(dataTypeLabel,'dOD')
+                dataTypeOrder{end+1} = 'dOD';
+            end
+        else
+            minAmp = min(minAmp,min(snirfObj.data(v).dataTimeSeries(:,u)));
+            maxAmp = max(maxAmp,max(snirfObj.data(v).dataTimeSeries(:,u)));
+            snirfObj.data(v).dataTimeSeries(:,u) = snirfObj.data(v).dataTimeSeries(:,u) -(minAmp+ maxAmp)/2;
+            minAmp = minAmp-(minAmp+ maxAmp)/2;
+            maxAmp = maxAmp-(minAmp+ maxAmp)/2;
+        end
     end
-    srcIdx = GetSourceIndex(snirfObj.data.measurementList(u));
-    detIdx = GetDetectorIndex(snirfObj.data.measurementList(u));
-    if isempty(measList)
-        measList  = [srcIdx, detIdx];
-    elseif sum(ismember(measList, [srcIdx, detIdx], 'rows')) == 0
-        measList  = [measList;  [srcIdx, detIdx]];
-    end
-    
-    if u == 1
-        minAmp = min(snirfObj.data.dataTimeSeries(:,u));
-        maxAmp = max(snirfObj.data.dataTimeSeries(:,u));
-        snirfObj.data.dataTimeSeries(:,u) = snirfObj.data.dataTimeSeries(:,u) -(minAmp+ maxAmp)/2;
-        minAmp = minAmp-(minAmp+ maxAmp)/2;
-        maxAmp = maxAmp-(minAmp+ maxAmp)/2;
-    else
-        minAmp = min(minAmp,min(snirfObj.data.dataTimeSeries(:,u)));
-        maxAmp = max(maxAmp,max(snirfObj.data.dataTimeSeries(:,u)));
-        snirfObj.data.dataTimeSeries(:,u) = snirfObj.data.dataTimeSeries(:,u) -(minAmp+ maxAmp)/2;
-        minAmp = minAmp-(minAmp+ maxAmp)/2;
-        maxAmp = maxAmp-(minAmp+ maxAmp)/2;
-    end
+    handles.data.minAmp(v) = minAmp;
+    handles.data.maxAmp(v) = maxAmp;
 end
 
 for u = 1:length(dataTypeLabels)
    if contains(dataTypeLabels{u},'HRF') | contains(dataTypeLabels{u},'HbO') | contains(dataTypeLabels{u},'HbR') | contains(dataTypeLabels{u},'HbT')
-       set(handles.checkbox_displayHbO, 'Enable', 'on');
-       set(handles.checkbox_displayHbR, 'Enable', 'on');
-       set(handles.checkbox_displayHbT, 'Enable', 'on');
+       if ~any(strcmp(HbXList,dataTypeLabels{u}))
+           HbXList{end+1} = dataTypeLabels{u};
+       end
+       set(handles.radiobutton_HbX, 'Enable', 'on');
+       set(handles.listbox_selectActivity, 'Enable', 'on');
    end
    
-   if contains(dataTypeLabels{u},'OD') 
-       set(handles.checkbox_displayOD1, 'Enable', 'on');
-       set(handles.checkbox_displayOD2, 'Enable', 'on');
+   if contains(dataTypeLabels{u},'dOD') 
+       if ~any(strcmp(dODList,dataTypeLabels{u}))
+           dODList{end+1} = dataTypeLabels{u};
+       end
+       set(handles.radiobutton_dOD, 'Enable', 'on');
+       set(handles.listbox_selectActivity, 'Enable', 'on');
    end
 end
 
@@ -115,12 +148,14 @@ sPos = snirfObj.probe.sourcePos3D;
 dPos = snirfObj.probe.detectorPos3D;
 min_dist = 0;
 max_dist = 0;
-for u = 1:length(snirfObj.data.measurementList)
-    srcIdx = GetSourceIndex(snirfObj.data.measurementList(u));
-    detIdx = GetDetectorIndex(snirfObj.data.measurementList(u));
-    channel_dist = sqrt(sum((sPos(srcIdx,:) - dPos(detIdx ,:)).^2));
-    min_dist = min(min_dist, channel_dist);
-    max_dist = max(max_dist, channel_dist);
+for v = 1:length(snirfObj.data)
+    for u = 1:length(snirfObj.data(v).measurementList)
+        srcIdx = GetSourceIndex(snirfObj.data(v).measurementList(u));
+        detIdx = GetDetectorIndex(snirfObj.data(v).measurementList(u));
+        channel_dist = sqrt(sum((sPos(srcIdx,:) - dPos(detIdx ,:)).^2));
+        min_dist = min(min_dist, channel_dist);
+        max_dist = max(max_dist, channel_dist);
+    end
 end
 set(handles.edit_minDistForDisplay, 'String', min_dist);
 set(handles.edit_maxDistForDisplay, 'String', max_dist);
@@ -133,15 +168,24 @@ set(handles.listbox_selectConditions,'String',condition_names);
 
 handles.data.snirfObj = snirfObj;
 handles.data.measList = measList;
-handles.data.minAmp = minAmp;
-handles.data.maxAmp = maxAmp;
+handles.data.HbXList = HbXList;
+handles.data.dODList = dODList;
+handles.data.dataTypeOrder = dataTypeOrder;
 
 if isempty(snirfObj.probe.landmarkPos2D)
     set(handles.radiobutton_refPointsAsLabels,'Enable','Off');
     set(handles.radiobutton_refPointsAsCircles,'Enable','Off');
 end
 
+if ~isempty(HbXList)
+    set(handles.radiobutton_HbX, 'Value', 1.0);
+    set(handles.listbox_selectActivity,'String',HbXList);
+end
 
+if ~isempty(dODList) && isempty(HbXList)
+    set(handles.radiobutton_dOD, 'Value', 1.0);
+    set(handles.listbox_selectActivity,'String',dODList);
+end
 
 % % process data for displaying
 % if ~isempty(snirfObj.data.dataTimeSeries)
@@ -264,7 +308,7 @@ if isfield(handles,'data') & isfield(handles.data, 'snirfObj')
            0.50 0.80 0.30
               ];
           
-    t = snirfObj.data.time;
+    t = snirfObj.data(1).time;
     minT = min(t);
     maxT = max(t);
     EXPLODE_THRESH = 0.02;
@@ -277,54 +321,78 @@ if isfield(handles,'data') & isfield(handles.data, 'snirfObj')
     channel_max_dist = str2double(get(handles.edit_maxDistForDisplay, 'String'));
 %     contents = cellstr(get(handles.listbox_selectConditions,'String'));
     selected_conditions_index = get(handles.listbox_selectConditions,'Value');
-    for u = 1:length(snirfObj.data.measurementList)
-        activityConditionIndex = GetCondition(snirfObj.data.measurementList(u));
-        if any(selected_conditions_index == 1) || any(selected_conditions_index == activityConditionIndex+1)
-            srcIdx = GetSourceIndex(snirfObj.data.measurementList(u));
-            detIdx = GetDetectorIndex(snirfObj.data.measurementList(u));
+    data_index = 0;
+    selected_display_activities = {};
+    
+    if get(handles.radiobutton_HbX,'Value')
+        selected_display_activities_index = get(handles.listbox_selectActivity,'Value');
+        all_activities = get(handles.listbox_selectActivity,'String');
+        selected_display_activities = all_activities(selected_display_activities_index);
+        if ~contains(selected_display_activities,'None')
+            data_index = find(contains(handles.data.dataTypeOrder,'HRF HbX'));
+        end
+    elseif get(handles.radiobutton_dOD,'Value')
+        selected_display_activities_index = get(handles.listbox_selectActivity,'Value');
+        all_activities = get(handles.listbox_selectActivity,'String');
+        selected_display_activities = all_activities(selected_display_activities_index);
+        if ~contains(selected_display_activities,'None')
+            data_index = find(contains(handles.data.dataTypeOrder,'dOD'));
+        end
+    end
+    if data_index~= 0
+        for u = 1:length(snirfObj.data(data_index).measurementList)
+            activityConditionIndex = GetCondition(snirfObj.data(data_index).measurementList(u));
+            if any(selected_conditions_index == 1) || any(selected_conditions_index == activityConditionIndex+1)
+                srcIdx = GetSourceIndex(snirfObj.data(data_index).measurementList(u));
+                detIdx = GetDetectorIndex(snirfObj.data(data_index).measurementList(u));
 
-            channel_dist = sqrt(sum((sourcePos3D(srcIdx,:) - detectorPos3D(detIdx ,:)).^2));
-            if channel_dist >= channel_min_dist & channel_dist <= channel_max_dist
-                xa = (sPos(srcIdx,1) + dPos(detIdx ,1))/2 - axXoff;
-                ya = (sPos(srcIdx,2) + dPos(detIdx ,2))/2 - axYoff;
+                channel_dist = sqrt(sum((sourcePos3D(srcIdx,:) - detectorPos3D(detIdx ,:)).^2));
+                if channel_dist >= channel_min_dist & channel_dist <= channel_max_dist
+                    xa = (sPos(srcIdx,1) + dPos(detIdx ,1))/2 - axXoff;
+                    ya = (sPos(srcIdx,2) + dPos(detIdx ,2))/2 - axYoff;
 
-                % plot a line between source and detector
-                if get(handles.checkbox_displayMeasurementLine,'Value')
-                    if get(handles.checkbox_displayHbO, 'Value') || ...
-                                get(handles.checkbox_displayHbR, 'Value') || ...
-                                get(handles.checkbox_displayHbT, 'Value')
-                        xPos = [sPos(srcIdx,1) dPos(detIdx,1)] - axXoff;
-                        yPos = [sPos(srcIdx,2) dPos(detIdx,2)] - axYoff;
-                        plot(xPos ,yPos,'--','Color',[0.5 0.5 0.5])
+                    % plot a line between source and detector
+                    if get(handles.checkbox_displayMeasurementLine,'Value')
+%                         if get(handles.checkbox_displayHbO, 'Value') || ...
+%                                     get(handles.checkbox_displayHbR, 'Value') || ...
+%                                     get(handles.checkbox_displayHbT, 'Value')
+                            xPos = [sPos(srcIdx,1) dPos(detIdx,1)] - axXoff;
+                            yPos = [sPos(srcIdx,2) dPos(detIdx,2)] - axYoff;
+                            plot(xPos ,yPos,'--','Color',[0.5 0.5 0.5])
+%                         end
                     end
-                end
-                for i = 1:size(xyas, 1)
-                   if sqrt((xyas(i, 1) - xa)^2 + (xyas(i, 2) - ya)^2) < EXPLODE_THRESH
-                       xa = xa + EXPLODE_VECTOR(1);
-                       ya = ya + EXPLODE_VECTOR(2);
-                   end
-                end
-                xT = xa-axWid/4 + axWid*((t-minT)/(maxT-minT))/2;
-                xyas = [xyas; [xa, ya]];
-                Avg = snirfObj.data.dataTimeSeries(:,u);
-        %         minAmp=squeeze(min(min(Avg)));
-        %         maxAmp=squeeze(max(max(Avg)));
-                cmin = handles.data.minAmp;
-                cmax = handles.data.maxAmp;
-        %         Avg = Avg-(cmin+cmax)/2;
-                AvgT = ya-axHgt/4 + axHgt*((Avg-cmin)/(cmax-cmin))/2;
-        %         cmin = min(AvgT);
-        %         cmax = max(AvgT);
-        %          AvgT = AvgT-(cmin+cmax)/2;
-                dataTypeLabel = GetDataTypeLabel(snirfObj.data.measurementList(u));
-                if get(handles.checkbox_displayHbO, 'Value') & contains(dataTypeLabel,'HbO')
-                    plot( xT, AvgT,'color',color(1,:));
-                elseif get(handles.checkbox_displayHbR, 'Value') & contains(dataTypeLabel,'HbR')
-                    plot( xT, AvgT,'color',color(2,:));
-                elseif get(handles.checkbox_displayHbT, 'Value') & contains(dataTypeLabel,'HbT')
-                    plot( xT, AvgT,'color',color(3,:));
-        %         else
-        %             plot( xT, AvgT,'color',color(4,:));
+                    for i = 1:size(xyas, 1)
+                       if sqrt((xyas(i, 1) - xa)^2 + (xyas(i, 2) - ya)^2) < EXPLODE_THRESH
+                           xa = xa + EXPLODE_VECTOR(1);
+                           ya = ya + EXPLODE_VECTOR(2);
+                       end
+                    end
+                    xT = xa-axWid/4 + axWid*((t-minT)/(maxT-minT))/2;
+                    xyas = [xyas; [xa, ya]];
+                    Avg = snirfObj.data(data_index).dataTimeSeries(:,u);
+            %         minAmp=squeeze(min(min(Avg)));
+            %         maxAmp=squeeze(max(max(Avg)));
+                    cmin = handles.data.minAmp(data_index);
+                    cmax = handles.data.maxAmp(data_index);
+            %         Avg = Avg-(cmin+cmax)/2;
+                    AvgT = ya-axHgt/4 + axHgt*((Avg-cmin)/(cmax-cmin))/2;
+            %         cmin = min(AvgT);
+            %         cmax = max(AvgT);
+            %          AvgT = AvgT-(cmin+cmax)/2;
+                    dataTypeLabel = GetDataTypeLabel(snirfObj.data(data_index).measurementList(u));
+                    if iscell(dataTypeLabel)
+                        dataTypeLabel = strcat((char(dataTypeLabel))');
+                    end
+                    
+                    if any(contains(selected_display_activities,dataTypeLabel)) & contains(dataTypeLabel,'HbO')
+                        plot( xT, AvgT,'color',color(1,:));
+                    elseif any(contains(selected_display_activities,dataTypeLabel)) & contains(dataTypeLabel,'HbR')
+                        plot( xT, AvgT,'color',color(2,:));
+                    elseif any(contains(selected_display_activities,dataTypeLabel)) & contains(dataTypeLabel,'HbT')
+                        plot( xT, AvgT,'color',color(3,:));
+                    elseif any(contains(selected_display_activities,dataTypeLabel))
+                        plot( xT, AvgT,'color',color(4,:));
+                    end
                 end
             end
         end
@@ -356,7 +424,8 @@ function checkbox_displayHbO_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of checkbox_displayHbO
-
+set(handles.checkbox_displayOD1,'Value',0)
+set(handles.checkbox_displayOD2,'Value',0)
 display(handles)
 
 
@@ -367,7 +436,8 @@ function checkbox_displayHbR_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of checkbox_displayHbR
-
+set(handles.checkbox_displayOD1,'Value',0)
+set(handles.checkbox_displayOD2,'Value',0)
 display(handles)
 
 
@@ -378,7 +448,8 @@ function checkbox_displayHbT_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of checkbox_displayHbT
-
+set(handles.checkbox_displayOD1,'Value',0)
+set(handles.checkbox_displayOD2,'Value',0)
 display(handles)
 
 
@@ -389,7 +460,9 @@ function checkbox_displayOD1_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of checkbox_displayOD1
-
+set(handles.checkbox_displayHbO,'Value',0)
+set(handles.checkbox_displayHbR,'Value',0)
+set(handles.checkbox_displayHbT,'Value',0)
 display(handles)
 
 
@@ -400,7 +473,9 @@ function checkbox_displayOD2_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of checkbox_displayOD2
-
+set(handles.checkbox_displayHbO,'Value',0)
+set(handles.checkbox_displayHbR,'Value',0)
+set(handles.checkbox_displayHbT,'Value',0)
 display(handles)
 
 
@@ -672,3 +747,57 @@ function checkbox_axisImage_Callback(hObject, eventdata, handles)
 % Hint: get(hObject,'Value') returns toggle state of checkbox_axisImage
 
 display(handles)
+
+
+% --- Executes on button press in radiobutton_HbX.
+function radiobutton_HbX_Callback(hObject, eventdata, handles)
+% hObject    handle to radiobutton_HbX (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of radiobutton_HbX
+
+if strcmp(get(handles.radiobutton_dOD,'Enable'),'on')
+    set(handles.radiobutton_dOD,'Value',0);
+    set(handles.listbox_selectActivity,'Value',1);
+    set(handles.listbox_selectActivity,'String',handles.data.HbXList);
+end
+
+
+% --- Executes on button press in radiobutton_dOD.
+function radiobutton_dOD_Callback(hObject, eventdata, handles)
+% hObject    handle to radiobutton_dOD (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of radiobutton_dOD
+
+if strcmp(get(handles.radiobutton_HbX,'Enable'),'on')
+    set(handles.radiobutton_HbX,'Value',0);
+    set(handles.listbox_selectActivity,'Value',1);
+    set(handles.listbox_selectActivity,'String',handles.data.dODList);
+end
+
+
+% --- Executes on selection change in listbox_selectActivity.
+function listbox_selectActivity_Callback(hObject, eventdata, handles)
+% hObject    handle to listbox_selectActivity (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns listbox_selectActivity contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from listbox_selectActivity
+
+display(handles)
+
+% --- Executes during object creation, after setting all properties.
+function listbox_selectActivity_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to listbox_selectActivity (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: listbox controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
